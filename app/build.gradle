@@ -1,0 +1,125 @@
+plugins {
+    id 'com.android.application'
+    id 'org.jetbrains.kotlin.android'
+}
+
+def releaseSigningFile = rootProject.file('release-signing.properties')
+def releasePolicyFile = rootProject.file('release-policy.properties')
+def releaseLicenseFile = rootProject.file('release-license.properties')
+def releaseSigning = new Properties()
+def releasePolicy = new Properties()
+def releaseLicense = new Properties()
+if (releaseSigningFile.isFile()) {
+    releaseSigningFile.withInputStream { releaseSigning.load(it) }
+}
+if (releasePolicyFile.isFile()) {
+    releasePolicyFile.withInputStream { releasePolicy.load(it) }
+}
+if (releaseLicenseFile.isFile()) {
+    releaseLicenseFile.withInputStream { releaseLicense.load(it) }
+}
+def privacyOperator = releasePolicy.getProperty('privacyOperator', 'Roboyi').trim()
+def privacyPolicyUrl = releasePolicy.getProperty('privacyPolicyUrl', '').trim()
+def privacyContactEmail = releasePolicy.getProperty('privacyContactEmail', 'roboyi@126.com').trim()
+def privacyPolicyVersion = releasePolicy.getProperty('privacyPolicyVersion', '2026-10-11').trim()
+def releaseLicenseKey = releaseLicense.getProperty('licenseKey', '').trim()
+def signingStoreFile = releaseSigning.getProperty('storeFile', '').trim()
+def signingKeyAlias = releaseSigning.getProperty('keyAlias', '').trim()
+def signingStorePassword = providers.environmentVariable('ROBOYI_RELEASE_STORE_PASSWORD').orNull ?:
+    releaseSigning.getProperty('storePassword', '')
+def signingKeyPassword = providers.environmentVariable('ROBOYI_RELEASE_KEY_PASSWORD').orNull ?:
+    releaseSigning.getProperty('keyPassword', '')
+def hasReleaseSigning = signingStoreFile && signingKeyAlias &&
+    signingStorePassword && signingKeyPassword
+// SDK artifacts are versioned independently from the application.
+def sdkArtifactVersion = 'V1.0.5-Beta'
+def sdkCoreAar = file("libs/roboyiplayer-core-avc-hevc-release-${sdkArtifactVersion}.aar")
+def sdkTransportAar = file("libs/roboyiplayer-transport-gstreamer-avc-hevc-release-${sdkArtifactVersion}.aar")
+def sdkCameraPushAar = file("libs/roboyiplayer-camera-push-release-${sdkArtifactVersion}.aar")
+android {
+    namespace 'com.roboyi.rtspdemo'
+    compileSdk 36
+
+    defaultConfig {
+        applicationId 'com.roboyi.rtspplayer'
+        minSdk 24
+        targetSdk 36
+        versionCode 7
+        versionName '1.0.6'
+        testInstrumentationRunner 'com.roboyi.rtspdemo.InspectionSmokeInstrumentation'
+        ndk { abiFilters 'arm64-v8a', 'armeabi-v7a' }
+        buildConfigField 'String', 'ROBOYI_LICENSE', '"RYL4.prod-2026-01.eyJzY2hlbWFWZXJzaW9uIjo0LCJsaWNlbnNlSWQiOiJsaWMtcnRzcHBsYXllci1wZXJwZXR1YWwtdjEwNC0yMDI2MDkyMiIsImFwcGxpY2F0aW9uTGFiZWwiOiJSdHNwUGxheWVyIiwicGFja2FnZU5hbWVzIjpbImNvbS5yb2JveWkucnRzcHBsYXllciJdLCJleHBpcmVzQXQiOjQxMDI0NDQ4MDAsImNvZGVjU2NvcGUiOiJBVkNfSEVWQyIsImZlYXR1cmVzIjpbIlBMQVlCQUNLIiwiUkVDT1JESU5HIiwiUlRTUF9QVVNIIiwiU0NSRUVOU0hPVCJdfQ.MEUCIQCNE9hLh764cVpc5HGSzu5kNC1wLr4t8cwcyqndZqKRnwIgf38dmw97YmPeUIWfrPQeVEObrlmA7izDGrlS-nL1JiM"'
+        buildConfigField 'String', 'PRIVACY_OPERATOR', groovy.json.JsonOutput.toJson(privacyOperator)
+        buildConfigField 'String', 'PRIVACY_POLICY_URL', groovy.json.JsonOutput.toJson(privacyPolicyUrl)
+        buildConfigField 'String', 'PRIVACY_CONTACT_EMAIL', groovy.json.JsonOutput.toJson(privacyContactEmail)
+        buildConfigField 'String', 'PRIVACY_POLICY_VERSION', groovy.json.JsonOutput.toJson(privacyPolicyVersion ?: '2026-10-11')
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+    kotlinOptions { jvmTarget = '1.8' }
+
+    buildFeatures {
+        viewBinding true
+        buildConfig true
+    }
+
+    if (hasReleaseSigning) {
+        signingConfigs {
+            release {
+                storeFile rootProject.file(signingStoreFile)
+                if (releaseSigning.getProperty('storeType')?.trim()) {
+                    storeType releaseSigning.getProperty('storeType').trim()
+                }
+                storePassword signingStorePassword
+                keyAlias signingKeyAlias
+                keyPassword signingKeyPassword
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            debuggable false
+            if (hasReleaseSigning) signingConfig signingConfigs.release
+            if (releaseLicenseKey) {
+                buildConfigField 'String', 'ROBOYI_LICENSE', groovy.json.JsonOutput.toJson(releaseLicenseKey)
+            }
+        }
+    }
+
+    packaging {
+        jniLibs { pickFirsts += ['**/libc++_shared.so'] }
+    }
+
+    lint {
+        // Untranslated optional features use the English base resources.
+        warning 'MissingTranslation'
+    }
+}
+
+
+android.applicationVariants.all { variant ->
+    if (variant.buildType.name == 'release') {
+        variant.outputs.all { output ->
+            def versionName = variant.versionName
+            outputFileName = "RoboYiPlayer-${versionName}.apk"
+        }
+    }
+}
+
+dependencies {
+    implementation project(':domain')
+    implementation project(':data')
+    implementation 'androidx.core:core-ktx:1.15.0'
+    implementation 'androidx.appcompat:appcompat:1.7.0'
+    implementation 'androidx.fragment:fragment-ktx:1.8.5'
+    implementation 'androidx.activity:activity-ktx:1.9.3'
+    implementation 'androidx.lifecycle:lifecycle-viewmodel:2.6.2'
+    implementation 'androidx.lifecycle:lifecycle-livedata:2.6.2'
+    implementation files(sdkCoreAar)
+    implementation files(sdkTransportAar)
+    implementation files(sdkCameraPushAar)
+}

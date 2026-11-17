@@ -1,0 +1,19 @@
+.gradle/
+.kotlin/
+.idea/
+**/build/
+local.properties
+release-signing.properties
+release-policy.properties
+release-license.properties
+*.jks
+*.keystore
+*.p12
+*.apk
+*.idsig
+*.iml
+__pycache__/
+*.pyc
+
+# 本地生成的发布审计报告、SBOM 和依赖快照
+/docs/release-evidence/

@@ -1,0 +1,12 @@
+<resources>
+    <color name="page">#000000</color>
+    <color name="panel">#D91C1C1E</color>
+    <color name="panel_alt">#B83A3A3C</color>
+    <color name="ink">#F5F5F7</color>
+    <color name="muted">#98989D</color>
+    <color name="blue">#0A84FF</color>
+    <color name="cyan">#64D2FF</color>
+    <color name="green">#30D158</color>
+    <color name="danger">#FF453A</color>
+    <color name="stroke">#38FFFFFF</color>
+</resources>
